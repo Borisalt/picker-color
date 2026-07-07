@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Color Picker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f5f5f7; color: #1e1e1e; min-height: 100vh; padding: 40px 24px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; display: flex; gap: 40px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .picker { width: 360px; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); user-select: none; flex-shrink: 0; }
+  .picker-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+  .close-btn { width: 24px; height: 24px; border: none; background: none; cursor: pointer; border-radius: 4px; color: #4b5563; display: flex; align-items: center; justify-content: center; }
+  .close-btn:hover { background: rgba(0,0,0,0.05); }
+  #area { position: relative; width: 100%; height: 256px; cursor: crosshair; touch-action: none; }
+  #area .white { position: absolute; inset: 0; background: linear-gradient(to right, #fff, rgba(255,255,255,0)); }
+  #area .black { position: absolute; inset: 0; background: linear-gradient(to top, #000, rgba(0,0,0,0)); }
+  #areaHandle { position: absolute; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); transform: translate(-50%, 50%); pointer-events: none; }
+  .sliders-row { display: flex; align-items: center; gap: 12px; padding: 16px; }
+  .eyedropper { width: 28px; height: 28px; flex-shrink: 0; border: none; background: none; cursor: pointer; color: #4b5563; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+  .eyedropper:hover { background: rgba(0,0,0,0.05); }
+  .sliders { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .slider { position: relative; height: 12px; width: 100%; border-radius: 999px; cursor: pointer; touch-action: none; }
+  #hue { background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%); }
+  #alpha { background: repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%) 50% / 12px 12px; }
+  #alphaGradient { position: absolute; inset: 0; border-radius: 999px; }
+  .slider-handle { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); transform: translate(-50%, -50%); pointer-events: none; }
+  .inputs-row { display: flex; gap: 8px; padding: 0 16px 16px; }
+  .format-btn { display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 34px; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: #fff; cursor: pointer; color: #1e1e1e; }
+  .field { display: flex; align-items: center; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; padding: 0 10px; height: 34px; }
+  .field.hex { flex: 1; }
+  .field.opacity { width: 72px; }
+  .field input { border: none; outline: none; background: none; width: 100%; font: inherit; color: #1e1e1e; }
+  #hexInput { text-transform: uppercase; }
+  #opacityInput { text-align: right; }
+  .pct { color: #6b7280; padding-left: 4px; }
+  .divider { border-top: 1px solid rgba(0,0,0,0.1); }
+  .page-section { padding: 16px; }
+  .page-select { display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; color: #1e1e1e; }
+  .swatches { display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; }
+  .swatch { aspect-ratio: 1; width: 100%; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; padding: 0; transition: transform 0.1s; }
+  .swatch:hover { transform: scale(1.1); }
+  .preview { width: 100%; max-width: 384px; display: flex; flex-direction: column; gap: 24px; }
+  .preview h2 { font-size: 18px; }
+  .preview .sub { color: #6b7280; margin-top: 4px; font-size: 14px; }
+  .preview-stage { height: 224px; border: 1px solid rgba(0,0,0,0.1); border-radius: 16px; display: flex; align-items: center; justify-content: center; background: repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px; }
+  #previewShape { width: 128px; height: 128px; border-radius: 16px; box-shadow: 0 10px 15px rgba(0,0,0,0.15); transition: background-color 0.05s; }
+  .value-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .value-card { border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 10px 12px; background: #fff; }
+  .value-card .label { color: #9ca3af; font-size: 12px; }
+  .value-card .value { color: #1e1e1e; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  .apply-box { border: 1px solid rgba(0,0,0,0.1); border-radius: 16px; background: #fff; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .apply-box .sub2 { color: #6b7280; font-size: 14px; }
+  #sampleBtn { border: none; border-radius: 8px; padding: 10px 16px; color: #fff; cursor: pointer; font: inherit; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="picker">
+      <div class="picker-header">
+        <span>Custom</span>
+        <button class="close-btn" title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="area"><div class="white"></div><div class="black"></div><div id="areaHandle"></div></div>
+      <div class="sliders-row">
+        <button class="eyedropper" id="eyedropper" title="Eyedropper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+        </button>
+        <div class="sliders">
+          <div class="slider" id="hue"><div class="slider-handle" id="hueHandle"></div></div>
+          <div class="slider" id="alpha"><div id="alphaGradient"></div><div class="slider-handle" id="alphaHandle"></div></div>
+        </div>
+      </div>
+      <div class="inputs-row">
+        <button class="format-btn">Hex
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="field hex"><input id="hexInput" spellcheck="false" /></div>
+        <div class="field opacity"><input id="opacityInput" inputmode="numeric" /><span class="pct">%</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="page-section">
+        <div class="page-select">
+          <span>On this page</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="swatches" id="swatches"></div>
+      </div>
+    </div>
+    <div class="preview">
+      <div><h2>실시간 미리보기</h2><p class="sub">피커를 조작하면 아래 도형에 색이 즉시 반영됩니다.</p></div>
+      <div class="preview-stage"><div id="previewShape"></div></div>
+      <div class="value-cards">
+        <div class="value-card"><div class="label">HEX</div><div class="value" id="valHex"></div></div>
+        <div class="value-card"><div class="label">RGBA</div><div class="value" id="valRgb"></div></div>
+        <div class="value-card"><div class="label">OPACITY</div><div class="value" id="valOpacity"></div></div>
+      </div>
+      <div class="apply-box">
+        <span class="sub2">적용 예시</span>
+        <button id="sampleBtn">Primary Button</button>
+        <p id="sampleText">이 텍스트도 선택한 색상을 사용합니다.</p>
+      </div>
+    </div>
+  </div>
+<script>
+  var clamp = function (v, min, max) { return Math.min(max, Math.max(min, v)); };
+  function hsvToRgb(h, s, v) {
+    var sat = s/100, val = v/100, c = val*sat, hh = h/60, x = c*(1-Math.abs((hh%2)-1));
+    var r=0,g=0,b=0;
+    if (hh>=0&&hh<1){r=c;g=x;} else if(hh<2){r=x;g=c;} else if(hh<3){g=c;b=x;}
+    else if(hh<4){g=x;b=c;} else if(hh<5){r=x;b=c;} else {r=c;b=x;}
+    var m=val-c; return {r:Math.round((r+m)*255),g:Math.round((g+m)*255),b:Math.round((b+m)*255)};
+  }
+  function rgbToHsv(r,g,b){
+    var rr=r/255,gg=g/255,bb=b/255,max=Math.max(rr,gg,bb),min=Math.min(rr,gg,bb),d=max-min,h=0;
+    if(d!==0){ if(max===rr)h=((gg-bb)/d)%6; else if(max===gg)h=(bb-rr)/d+2; else h=(rr-gg)/d+4; h*=60; if(h<0)h+=360; }
+    return {h:h,s:max===0?0:(d/max)*100,v:max*100};
+  }
+  function toHex(n){return clamp(Math.round(n),0,255).toString(16).padStart(2,"0").toUpperCase();}
+  function hsvaToHex(c){var r=hsvToRgb(c.h,c.s,c.v);return toHex(r.r)+toHex(r.g)+toHex(r.b);}
+  function hexToHsv(hex){
+    var clean=hex.trim().replace(/^#/,"");
+    if(clean.length===3)clean=clean.split("").map(function(c){return c+c;}).join("");
+    if(!/^[0-9a-fA-F]{6}$/.test(clean))return null;
+    return rgbToHsv(parseInt(clean.slice(0,2),16),parseInt(clean.slice(2,4),16),parseInt(clean.slice(4,6),16));
+  }
+  function rgbaString(c){var r=hsvToRgb(c.h,c.s,c.v);return "rgba("+r.r+", "+r.g+", "+r.b+", "+(c.a/100).toFixed(2)+")";}
+  var state={h:0,s:66,v:66,a:100};
+  var SWATCHES=["FFFFFF","000000","5B6B79","0D99FF","667380","8C9BA5","9CA3AF","374151","6B7280","F3F4F6","E5E7EB","1E293B","475569","0D99FF","1D4ED8","F9FAFB","D1D5DB","94A3B8"];
+  var $=function(id){return document.getElementById(id);};
+  var area=$("area"),hue=$("hue"),alpha=$("alpha");
+  function render(){
+    var pure=hsvToRgb(state.h,100,100), pureRgb="rgb("+pure.r+","+pure.g+","+pure.b+")", rgba=rgbaString(state), rgb=hsvToRgb(state.h,state.s,state.v);
+    area.style.backgroundColor=pureRgb;
+    $("areaHandle").style.left=state.s+"%"; $("areaHandle").style.bottom=state.v+"%"; $("areaHandle").style.backgroundColor="#"+hsvaToHex(state);
+    $("hueHandle").style.left=(state.h/360*100)+"%"; $("hueHandle").style.backgroundColor=pureRgb;
+    $("alphaGradient").style.background="linear-gradient(to right, rgba("+pure.r+","+pure.g+","+pure.b+",0), "+pureRgb+")";
+    $("alphaHandle").style.left=state.a+"%"; $("alphaHandle").style.backgroundColor=rgba;
+    if(document.activeElement!==$("hexInput"))$("hexInput").value=hsvaToHex(state);
+    if(document.activeElement!==$("opacityInput"))$("opacityInput").value=Math.round(state.a);
+    $("previewShape").style.backgroundColor=rgba;
+    $("valHex").textContent="#"+hsvaToHex(state); $("valRgb").textContent=rgb.r+", "+rgb.g+", "+rgb.b; $("valOpacity").textContent=Math.round(state.a)+"%";
+    $("sampleBtn").style.backgroundColor=rgba; $("sampleText").style.color=rgba;
+  }
+  var dragTarget=null;
+  function fromArea(x,y){var r=area.getBoundingClientRect();state.s=clamp((x-r.left)/r.width,0,1)*100;state.v=(1-clamp((y-r.top)/r.height,0,1))*100;render();}
+  function fromHue(x){var r=hue.getBoundingClientRect();state.h=clamp((x-r.left)/r.width,0,1)*360;render();}
+  function fromAlpha(x){var r=alpha.getBoundingClientRect();state.a=clamp((x-r.left)/r.width,0,1)*100;render();}
+  area.addEventListener("pointerdown",function(e){e.preventDefault();dragTarget="area";fromArea(e.clientX,e.clientY);});
+  hue.addEventListener("pointerdown",function(e){e.preventDefault();dragTarget="hue";fromHue(e.clientX);});
+  alpha.addEventListener("pointerdown",function(e){e.preventDefault();dragTarget="alpha";fromAlpha(e.clientX);});
+  window.addEventListener("pointermove",function(e){if(!dragTarget)return;if(dragTarget==="area")fromArea(e.clientX,e.clientY);else if(dragTarget==="hue")fromHue(e.clientX);else fromAlpha(e.clientX);});
+  window.addEventListener("pointerup",function(){dragTarget=null;});
+  $("hexInput").addEventListener("input",function(e){e.target.value=e.target.value.replace(/[^0-9a-fA-F]/g,"").slice(0,6);});
+  $("hexInput").addEventListener("blur",function(e){var hsv=hexToHsv(e.target.value);if(hsv){state.h=hsv.h;state.s=hsv.s;state.v=hsv.v;}render();});
+  $("hexInput").addEventListener("keydown",function(e){if(e.key==="Enter")e.target.blur();});
+  $("opacityInput").addEventListener("input",function(e){e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,3);});
+  $("opacityInput").addEventListener("blur",function(e){var n=parseInt(e.target.value,10);if(!isNaN(n))state.a=clamp(n,0,100);render();});
+  $("opacityInput").addEventListener("keydown",function(e){if(e.key==="Enter")e.target.blur();});
+  $("eyedropper").addEventListener("click",function(){
+    if(!window.EyeDropper){alert("이 브라우저는 스포이드(EyeDropper) 기능을 지원하지 않습니다.");return;}
+    new window.EyeDropper().open().then(function(res){var hsv=hexToHsv(res.sRGBHex);if(hsv){state.h=hsv.h;state.s=hsv.s;state.v=hsv.v;render();}}).catch(function(){});
+  });
+  var container=$("swatches");
+  SWATCHES.forEach(function(hex){
+    var b=document.createElement("button");b.className="swatch";b.style.backgroundColor="#"+hex;b.title="#"+hex;
+    b.addEventListener("click",function(){var hsv=hexToHsv(hex);if(hsv){state.h=hsv.h;state.s=hsv.s;state.v=hsv.v;state.a=100;render();}});
+    container.appendChild(b);
+  });
+  render();
+</script>
+</body>
+</html>
